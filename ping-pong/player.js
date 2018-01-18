@@ -2,14 +2,15 @@
 
 const encoding = "utf8"
 const amqp = require("amqplib/callback_api")
-const ping = new Buffer("Ping!", encoding)
-const pong = new Buffer("Pong!", encoding)
+const ping = "Ping!"
+const pong = "Pong!"
 const q = "ping-pong"
 const oneSecond = 1000
 const tenSeconds = 10 * oneSecond
 
 console.log("Booting ping-pong player!")
 
+// A random time between 1s and 10s, in milliseconds
 const randomTime = () => Math.floor(Math.random() * (tenSeconds - oneSecond)) + oneSecond
 
 const handleError = err => {
@@ -21,6 +22,28 @@ const handleError = err => {
   }
 }
 
+// Handle each incoming message
+const onMessageReceived = (msg, send) => {
+  console.log(msg)
+
+  setTimeout(() => {
+    if (msg === ping) {
+      send(pong)
+    } else {
+      send(ping)
+    }
+  }, randomTime())
+}
+
+// Utility function to make a publisher function for a specific queue on a connection.
+const makeSender = (q, ch) => msg => ch.sendToQueue(q, new Buffer(msg, encoding))
+
+// Utility function to make a consumer of a queue that can also publish to the same queue.
+const makeReceiver = (q, ch, send) => handler => {
+  ch.consume(q, msg => handler(msg.content.toString(encoding), send), { noAck: true })
+}
+
+// Connect to rabbitmq
 amqp.connect(
   {
     hostname: "rabbitmq",
@@ -33,25 +56,14 @@ amqp.connect(
     conn.createChannel((err, ch) => {
       handleError(err)
       ch.assertQueue(q, { durable: false })
+      const send = makeSender(q, ch)
+      const receive = makeReceiver(q, ch, send)
 
-      ch.consume(
-        q,
-        msg => {
-          const str = msg.content.toString(encoding)
-          console.log(str)
+      // Subscribe to "ping-pong" queue
+      receive(onMessageReceived)
 
-          setTimeout(() => {
-            if (str === ping.toString(encoding)) {
-              ch.sendToQueue(q, pong)
-            } else {
-              ch.sendToQueue(q, ping)
-            }
-          }, randomTime())
-        },
-        { noAck: true }
-      )
-
-      ch.sendToQueue(q, ping)
+      // Send an initial "Ping!"
+      send(ping)
     })
   }
 )
