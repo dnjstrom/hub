@@ -1,6 +1,7 @@
 version: "3"
 services:
 
+  # docker run -d --hostname rabbit --name rabbitmq -p 9090:15672 -e RABBITMQ_DEFAULT_USER=pi -e RABBITMQ_DEFAULT_PASS=qwer1234 rabbitmq:3.7-management-alpine
   rabbitmq:
     image: "rabbitmq:3.7-management-alpine"
     hostname: rabbit
@@ -9,7 +10,8 @@ services:
     environment:
       - RABBITMQ_DEFAULT_USER=${RASPBERRYPI_USER}
       - RABBITMQ_DEFAULT_PASS=${RASPBERRYPI_PASSWORD}
-
+    
+  # docker run -d --name ping-pong --link rabbitmq --volume $(realpath ./ping-pong):/ping-pong -e USER=pi -e PASSWORD=qwer1234 -w /ping-pong node:9.4-slim bash -c "npm install && node player.js"
   ping-pong:
     image: "node:9.4-slim"
     links:
