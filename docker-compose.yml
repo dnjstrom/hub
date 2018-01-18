@@ -1,0 +1,22 @@
+version: "3"
+services:
+
+  rabbitmq:
+    image: "rabbitmq:3.7-management-alpine"
+    hostname: rabbit
+    ports:
+      - 9090:15672
+    environment:
+      - RABBITMQ_DEFAULT_USER=${RASPBERRYPI_USER}
+      - RABBITMQ_DEFAULT_PASS=${RASPBERRYPI_PASSWORD}
+
+  ping-pong:
+    image: "node:9.4-slim"
+    links:
+      - rabbitmq
+    volumes:
+      - ./ping-pong:/ping-pong
+    environment:
+      - USER=${RASPBERRYPI_USER}
+      - PASSWORD=${RASPBERRYPI_PASSWORD}
+    command: node /ping-pong/player.js
