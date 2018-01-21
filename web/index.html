@@ -10,6 +10,21 @@
 <body>
     <h1>Hub</h1>
     <p>Hello world!</p>
+
+    <ul id="messages"></ul>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/2.0.4/socket.io.slim.js"></script>
+    <script>
+        var socket = io();
+        var messages = document.getElementById("messages")
+
+        socket.on('ping-pong', function (msg) {
+            var listItem = document.createElement("li");
+            var message = document.createTextNode(msg);
+            listItem.appendChild(message);
+            messages.appendChild(listItem);
+        });
+    </script>
 </body>
 
 </html>
