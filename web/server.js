@@ -1,21 +1,13 @@
 const { promisify } = require("util")
-const amqp = require("amqplib/callback_api")
+const amqp = require("amqplib")
 const app = require("express")()
 const http = require("http").Server(app)
 const io = require("socket.io")(http)
+const startServer = promisify(http.listen.bind(http))
+
 const PORT = 8080
 const exchange = "ping-pong"
 const encoding = "utf8"
-
-// Print error messages to console
-const handleError = err => {
-  if (err) {
-    console.error("\n\nError!\n\n")
-    console.error(err)
-    console.error("\n\n")
-    process.exit(1)
-  }
-}
 
 app.get("/", function(req, res) {
   res.sendFile(__dirname + "/index.html")
@@ -30,42 +22,33 @@ io.on("connection", function(socket) {
   })
 })
 
+const setupConnection = () =>
+  amqp
+    .connect({ hostname: "rabbitmq", username: process.env.USER, password: process.env.PASSWORD })
+    .then(conn => conn.createChannel())
+    .then(ch => ch.assertExchange(exchange, "fanout", { durable: false }).then(() => ({ ch })))
+    .then(({ ch }) => ch.assertQueue("", { exclusive: true }).then(q => ({ ch, q })))
+    .then(({ ch, q }) => ch.bindQueue(q.queue, exchange, "").then(() => ({ ch, q })))
+    .then(ctx => {
+      console.log("Connection to Rabbitmq established.")
+      return ctx
+    })
+
 // Start web server
-http.listen(PORT, function() {
-  console.log(`listening on *:${PORT}`)
 
-  // Connect to rabbitmq
-  amqp.connect(
-    {
-      hostname: "rabbitmq",
-      username: process.env.USER,
-      password: process.env.PASSWORD
-    },
-    (err, conn) => {
-      handleError(err)
-      conn.createChannel((err, ch) => {
-        handleError(err)
-
-        // Set up Pub/Sub
-        ch.assertExchange(exchange, "fanout", { durable: false })
-        ch.assertQueue("", { exclusive: true }, function(err, q) {
-          handleError(err)
-          ch.bindQueue(q.queue, exchange, "")
-
-          // Emit received messages on socket
-          ch.consume(
-            q.queue,
-            msg => {
-              const str = msg.content.toString(encoding)
-              console.log("Emitting", str)
-              io.emit(exchange, str)
-            },
-            {
-              noAck: true
-            }
-          )
-        })
-      })
+startServer(PORT)
+  .then(() => console.log(`Server listening on *:${PORT}.`))
+  .then(setupConnection)
+  .then(({ ch, q }) => {
+    ch.consume(q.queue, msg => io.emit(exchange, msg.content.toString(encoding)), {
+      noAck: true
+    })
+  })
+  .catch(err => {
+    if (err) {
+      console.error("\n\nError!\n\n")
+      console.error(err)
+      console.error("\n\n")
+      process.exit(1)
     }
-  )
-})
+  })

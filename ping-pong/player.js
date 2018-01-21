@@ -1,26 +1,16 @@
 "use strict"
 
+const amqp = require("amqplib")
+
 const encoding = "utf8"
-const amqp = require("amqplib/callback_api")
 const ping = "ping"
 const pong = "pong"
 const exchange = "ping-pong"
 const oneSecond = 1000
 const tenSeconds = 10 * oneSecond
 
-console.log("Booting ping-pong player!")
-
 // A random time between 1s and 10s, in milliseconds
 const randomTime = () => Math.floor(Math.random() * (tenSeconds - oneSecond)) + oneSecond
-
-const handleError = err => {
-  if (err) {
-    console.error("\n\nError!\n\n")
-    console.error(err)
-    console.error("\n\n")
-    process.exit(1)
-  }
-}
 
 // Handle each incoming message
 const onMessageReceived = (msg, ch) => {
@@ -35,41 +25,32 @@ const onMessageReceived = (msg, ch) => {
   }, randomTime())
 }
 
-// Utility function to make a publisher function for a specific queue on a connection.
-const makeSender = (q, ch) => msg => {
-  console.log("Sending", msg, "to", q)
-  ch.publish(exchange, "", new Buffer("Hello World!"))
-}
-
-// Utility function to make a consumer of a queue that can also publish to the same queue.
-const makeReceiver = (q, ch, send) => (handler, callback) => {
-  ch.consume(q, msg => handler(msg.content.toString(encoding), send), { noAck: true }, callback)
-}
-
-// Connect to rabbitmq
-amqp.connect(
-  {
-    hostname: "rabbitmq",
-    username: process.env.USER,
-    password: process.env.PASSWORD
-  },
-  (err, conn) => {
-    handleError(err)
-    conn.createChannel((err, ch) => {
-      handleError(err)
-
-      // Set up Pub/Sub
-      ch.assertExchange(exchange, "fanout", { durable: false })
-      ch.assertQueue("", { exclusive: true }, function(err, q) {
-        handleError(err)
-        ch.bindQueue(q.queue, exchange, "")
-
-        ch.consume(q.queue, msg => onMessageReceived(msg.content.toString(encoding), ch), {
-          noAck: true
-        })
-
-        ch.publish(exchange, "", new Buffer(ping))
-      })
+const setupConnection = () =>
+  amqp
+    .connect({ hostname: "rabbitmq", username: process.env.USER, password: process.env.PASSWORD })
+    .then(conn => conn.createChannel())
+    .then(ch => ch.assertExchange(exchange, "fanout", { durable: false }).then(() => ({ ch })))
+    .then(({ ch }) => ch.assertQueue("", { exclusive: true }).then(q => ({ ch, q })))
+    .then(({ ch, q }) => ch.bindQueue(q.queue, exchange, "").then(() => ({ ch, q })))
+    .then(ctx => {
+      console.log("Connection established")
+      return ctx
     })
-  }
-)
+
+// Start sending messages
+setupConnection()
+  .then(({ ch, q }) => {
+    ch.consume(q.queue, msg => onMessageReceived(msg.content.toString(encoding), ch), {
+      noAck: true
+    })
+
+    ch.publish(exchange, "", new Buffer(ping))
+  })
+  .catch(err => {
+    if (err) {
+      console.error("\n\nUnexpected Error!\n")
+      console.error(err)
+      console.error("\n")
+      process.exit(1)
+    }
+  })
