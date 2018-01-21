@@ -13,7 +13,6 @@
   },
   "scripts": {
     "start": "react-scripts start",
-    "prestart-server": "npm run build",
     "start-server": "node server.js",
     "build": "react-scripts build",
     "test": "react-scripts test --env=jsdom",

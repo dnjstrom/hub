@@ -1,7 +1,13 @@
 version: "3"
 services:
 
-  # docker run -d --hostname rabbit --name rabbitmq -p 9090:15672 -e RABBITMQ_DEFAULT_USER=pi -e RABBITMQ_DEFAULT_PASS=qwer1234 rabbitmq:3.7-management-alpine
+  # docker run -d
+  # --hostname rabbit
+  # --name rabbitmq
+  # -p 9090:1567
+  # -e RABBITMQ_DEFAULT_USER=$RASPBERRYPI_USER
+  # -e RABBITMQ_DEFAULT_PASS=$RASPBERRYPI_PASSWORD
+  # rabbitmq:3.7-management-alpine
   rabbitmq:
     image: "rabbitmq:3.7-management-alpine"
     hostname: rabbit
@@ -11,7 +17,15 @@ services:
       - RABBITMQ_DEFAULT_USER=${RASPBERRYPI_USER}
       - RABBITMQ_DEFAULT_PASS=${RASPBERRYPI_PASSWORD}
     
-  # docker run -d --name ping-pong --link rabbitmq --volume $(realpath ./ping-pong):/ping-pong -e USER=pi -e PASSWORD=qwer1234 -w /ping-pong node:9.4-slim bash -c "npm install && node player.js"
+  # docker run -d
+  # --name ping-pong
+  # --link rabbitmq
+  # --volume $(realpath ./ping-pong):/ping-pong
+  # -e USER=$RASPBERRYPI_USER
+  # -e PASSWORD=$RASPBERRYPI_PASSWORD
+  # -w /ping-pong
+  # node:9.4-slim
+  # bash -c "npm install && node player.js"
   ping-pong:
     image: "node:9.4-slim"
     links:
@@ -24,9 +38,18 @@ services:
     working_dir: /ping-pong
     command: node player.js
 
-  # docker run -d --name web -p 8080:8080 --volume $(realpath ./web):/web -w /web node:9.4-slim bash -c "npm install && npm start"
+  # docker run -d
+  # --name web
+  # --link rabbitmq
+  # -p 8080:8080
+  # --volume $(realpath ./web):/web
+  # -e USER=$RASPBERRYPI_USER
+  # -e PASSWORD=$RASPBERRYPI_PASSWORD
+  # -w /web
+  # node:9.4-slim
+  # bash -c "npm install && npm run start-server"
   web:
-    image: "node:9.4-slim"
+    build: ./web
     links:
       - rabbitmq
     environment:
@@ -34,7 +57,5 @@ services:
       - PASSWORD=${RASPBERRYPI_PASSWORD}
     volumes:
       - ./web:/web
-    working_dir: /web
     ports:
       - 8080:8080
-    command: npm run start-server
