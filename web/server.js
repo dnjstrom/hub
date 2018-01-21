@@ -1,6 +1,7 @@
 const { promisify } = require("util")
 const amqp = require("amqplib")
-const app = require("express")()
+const express = require("express")
+const app = express()
 const http = require("http").Server(app)
 const io = require("socket.io")(http)
 const startServer = promisify(http.listen.bind(http))
@@ -9,19 +10,10 @@ const PORT = 8080
 const exchange = "ping-pong"
 const encoding = "utf8"
 
-app.get("/", function(req, res) {
-  res.sendFile(__dirname + "/index.html")
-})
+// This serves the static web app in production.
+app.use(express.static("build"))
 
-// Print connection events to console
-io.on("connection", function(socket) {
-  console.log("a user connected")
-
-  socket.on("disconnect", function() {
-    console.log("user disconnected")
-  })
-})
-
+// Setup connection to rabbitmq
 const setupConnection = () =>
   amqp
     .connect({ hostname: "rabbitmq", username: process.env.USER, password: process.env.PASSWORD })
@@ -30,16 +22,16 @@ const setupConnection = () =>
     .then(({ ch }) => ch.assertQueue("", { exclusive: true }).then(q => ({ ch, q })))
     .then(({ ch, q }) => ch.bindQueue(q.queue, exchange, "").then(() => ({ ch, q })))
     .then(ctx => {
-      console.log("Connection to Rabbitmq established.")
+      console.log("Connection to rabbitmq established.")
       return ctx
     })
 
 // Start web server
-
 startServer(PORT)
   .then(() => console.log(`Server listening on *:${PORT}.`))
   .then(setupConnection)
   .then(({ ch, q }) => {
+    // Emit all messages to all connected websockets.
     ch.consume(q.queue, msg => io.emit(exchange, msg.content.toString(encoding)), {
       noAck: true
     })
