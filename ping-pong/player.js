@@ -2,9 +2,9 @@
 
 const encoding = "utf8"
 const amqp = require("amqplib/callback_api")
-const ping = "Ping!"
-const pong = "Pong!"
-const q = "ping-pong"
+const ping = "ping"
+const pong = "pong"
+const exchange = "ping-pong"
 const oneSecond = 1000
 const tenSeconds = 10 * oneSecond
 
@@ -23,24 +23,27 @@ const handleError = err => {
 }
 
 // Handle each incoming message
-const onMessageReceived = (msg, send) => {
+const onMessageReceived = (msg, ch) => {
   console.log(msg)
 
   setTimeout(() => {
     if (msg === ping) {
-      send(pong)
+      ch.publish(exchange, "", new Buffer(pong))
     } else {
-      send(ping)
+      ch.publish(exchange, "", new Buffer(ping))
     }
   }, randomTime())
 }
 
 // Utility function to make a publisher function for a specific queue on a connection.
-const makeSender = (q, ch) => msg => ch.sendToQueue(q, new Buffer(msg, encoding))
+const makeSender = (q, ch) => msg => {
+  console.log("Sending", msg, "to", q)
+  ch.publish(exchange, "", new Buffer("Hello World!"))
+}
 
 // Utility function to make a consumer of a queue that can also publish to the same queue.
-const makeReceiver = (q, ch, send) => handler => {
-  ch.consume(q, msg => handler(msg.content.toString(encoding), send), { noAck: true })
+const makeReceiver = (q, ch, send) => (handler, callback) => {
+  ch.consume(q, msg => handler(msg.content.toString(encoding), send), { noAck: true }, callback)
 }
 
 // Connect to rabbitmq
@@ -52,18 +55,21 @@ amqp.connect(
   },
   (err, conn) => {
     handleError(err)
-
     conn.createChannel((err, ch) => {
       handleError(err)
-      ch.assertQueue(q, { durable: false })
-      const send = makeSender(q, ch)
-      const receive = makeReceiver(q, ch, send)
 
-      // Subscribe to "ping-pong" queue
-      receive(onMessageReceived)
+      // Set up Pub/Sub
+      ch.assertExchange(exchange, "fanout", { durable: false })
+      ch.assertQueue("", { exclusive: true }, function(err, q) {
+        handleError(err)
+        ch.bindQueue(q.queue, exchange, "")
 
-      // Send an initial "Ping!"
-      send(ping)
+        ch.consume(q.queue, msg => onMessageReceived(msg.content.toString(encoding), ch), {
+          noAck: true
+        })
+
+        ch.publish(exchange, "", new Buffer(ping))
+      })
     })
   }
 )
