@@ -1,19 +1,21 @@
 {
   "name": "web",
-  "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "version": "0.1.0",
+  "private": true,
   "dependencies": {
     "amqplib": "^0.5.2",
     "express": "^4.16.2",
-    "http-server": "^0.11.1",
-    "socket.io": "^2.0.4"
+    "react": "^16.2.0",
+    "react-dom": "^16.2.0",
+    "react-scripts": "1.1.0",
+    "socket.io": "^2.0.4",
+    "styled-components": "^2.4.0"
   },
-  "devDependencies": {},
   "scripts": {
-    "start": "node server.js",
-    "test": "echo \"Error: no test specified\" && exit 1"
-  },
-  "author": "",
-  "license": "ISC"
+    "start": "react-scripts start",
+    "start-server": "node server.js",
+    "build": "react-scripts build",
+    "test": "react-scripts test --env=jsdom",
+    "eject": "react-scripts eject"
+  }
 }
