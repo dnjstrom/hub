@@ -38,16 +38,14 @@ services:
     working_dir: /ping-pong
     command: node player.js
 
+  # docker build -t web ./web
   # docker run -d
   # --name web
   # --link rabbitmq
   # -p 8080:8080
-  # --volume $(realpath ./web):/web
   # -e USER=$RASPBERRYPI_USER
   # -e PASSWORD=$RASPBERRYPI_PASSWORD
-  # -w /web
-  # node:9.4-slim
-  # bash -c "npm install && npm run start-server"
+  # web
   web:
     build: ./web
     links:
