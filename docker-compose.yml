@@ -21,4 +21,15 @@ services:
     environment:
       - USER=${RASPBERRYPI_USER}
       - PASSWORD=${RASPBERRYPI_PASSWORD}
-    command: node /ping-pong/player.js
+    working_dir: /ping-pong
+    command: node player.js
+
+  # docker run -d --name web --volume $(realpath ./web):/web -w /web node:9.4-slim bash -c "npm install && npm start"
+  web:
+    image: "node:9.4-slim"
+    volumes:
+      - ./web:/web
+    working_dir: /web
+    ports:
+      - 8080:8080
+    command: npm start
